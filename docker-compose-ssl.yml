@@ -1,0 +1,49 @@
+version: '3'
+
+services:
+  reverse-proxy:
+    image: traefik:v2.1
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=true
+      - --accesslog=true
+      - --entryPoints.web.address=:80
+      - --entryPoints.websecure.address=:443
+      # Enable ACME (Let's Encrypt): automatic SSL.
+      - --certificatesResolvers.myresolver.acme.email=r.gainanov@skoltech.ru
+      # File or key used for certificates storage.
+      - --certificatesResolvers.myresolver.acme.storage=/acme/acme.json
+      # Uncomment the line to use Let's Encrypt's staging server,
+      - --certificatesResolvers.myresolver.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
+      # Use a TLS-ALPN-01 ACME challenge.
+      # - --certificatesResolvers.myresolver.acme.tlsChallenge=true
+      # Use a HTTP-01 ACME challenge.
+      - --certificatesResolvers.myresolver.acme.httpChallenge=true
+      # EntryPoint to use for the HTTP-01 challenges.
+      - --certificatesResolvers.myresolver.acme.httpChallenge.entryPoint=web
+    ports:
+      # The HTTP port
+      - "80:80"
+      # The HTTP port
+      - "443:443"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # ACME certificates can be stored in a JSON file that needs to have a 600 file mode
+      - ./acme:/acme
+
+  whoami:
+    # A container that exposes an API to show its IP address
+    image: containous/whoami
+    container_name: whoami
+    labels:
+      # Handle secure and insecure traffic from websecure,web entry points
+      - traefik.http.routers.whoami.entrypoints=websecure,web
+      # Accept requests that matched specific Host
+      - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
+      - traefik.http.routers.whoami.tls=true
+      - traefik.http.routers.whoami.tls.certresolver=myresolver

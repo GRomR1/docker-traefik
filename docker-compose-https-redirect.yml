@@ -1,45 +1,38 @@
 version: '3'
 
 services:
-  reverse-proxy:
+  traefik:
     image: traefik:v2.1
     container_name: traefik
     command:
+      - --api=true
       - --api.dashboard=true
-      - --api.insecure=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=true
       - --accesslog=true
       - --entryPoints.web.address=:80
       - --entryPoints.websecure.address=:443
-      # Enable ACME (Let's Encrypt): automatic SSL.
       - --certificatesResolvers.myresolver.acme.email=r.gainanov@skoltech.ru
-      # File or key used for certificates storage.
       - --certificatesResolvers.myresolver.acme.storage=/acme/acme.json
       # Uncomment the line to use Let's Encrypt's staging server,
       - --certificatesResolvers.myresolver.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
-      # Use a TLS-ALPN-01 ACME challenge.
-      # - --certificatesResolvers.myresolver.acme.tlsChallenge=true
-      # Use a HTTP-01 ACME challenge.
       - --certificatesResolvers.myresolver.acme.httpChallenge=true
-      # EntryPoint to use for the HTTP-01 challenges.
       - --certificatesResolvers.myresolver.acme.httpChallenge.entryPoint=web
     labels:
-      - traefik.http.middlewares.https_redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.https_redirect.redirectscheme.permanent=true
-      - traefik.http.routers.api.middlewares=https_redirect
       - traefik.http.routers.api.entrypoints=websecure,web
-      - traefik.http.routers.api.rule=Host(`mgmt-traefik.cobrain.io`)
+      - traefik.http.routers.api.rule=Host(`dashboard.example.com`)
+      - traefik.http.routers.api.tls=true
+      - traefik.http.routers.api.tls.certresolver=letsencrypt
       - traefik.http.routers.api.service=api@internal
       - traefik.http.routers.api.middlewares=auth
-      - traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$mW/l73Bf$$WsprkCzl5.QbLdY9c4kdB0
+      - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$mW/l73Bf$$WsprkCzl5.QbLdY9c4kdB0"
+      # Declaring a middleware with name `https_redirect` uses Redirecting the Client to a `https` Scheme
+      - traefik.http.middlewares.https_redirect.redirectscheme.scheme=https
+      # Set the permanent option to true to apply a permanent redirection.
+      - traefik.http.middlewares.https_redirect.redirectscheme.permanent=true
     ports:
-      # The HTTP port
       - "80:80"
-      # The HTTP port
       - "443:443"
-      # The Web UI (enabled by --api.insecure=true)
-      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme:/acme
@@ -49,11 +42,12 @@ services:
     image: containous/whoami
     container_name: whoami
     labels:
-      traefik.http.routers.app.rule: Host(`portal.smalltorg.ru`)
+      traefik.http.routers.app.rule: Host(`whoami.example.com`)
       traefik.http.routers.app.entrypoints: web
+      # Set the middleware `https_redirect` to `app` router to apply a redirection to https.
       traefik.http.routers.app.middlewares: https_redirect
 
-      traefik.http.routers.appsecured.rule: Host(`portal.smalltorg.ru`)
+      traefik.http.routers.appsecured.rule: Host(`whoami.example.com`)
       traefik.http.routers.appsecured.entrypoints: websecure
       traefik.http.routers.appsecured.tls: true
       traefik.http.routers.appsecured.tls.certresolver: myresolver

@@ -1,16 +1,21 @@
 version: '3'
 
 services:
-  reverse-proxy:
+  traefik:
     image: traefik:v2.1
     container_name: traefik
     command:
+      # Enable dashboard
       - --api.dashboard=true
+      # Allow use API and dashboard though insecure
       - --api.insecure=true
+      # Use docker as provider
       - --providers.docker=true
-      - --providers.docker.exposedbydefault=true
+      # Enable log income requsts
       - --accesslog=true
+      # Set log level (default ERROR)
       - --log.level=ERROR
+      # Define entrypoint that listens 80 port
       - --entryPoints.web.address=:80
     ports:
       # The HTTP port
@@ -18,6 +23,7 @@ services:
       # The Web UI (enabled by --api.insecure=true)
       - "8080:8080"
     volumes:
+      # Mount docker socker from host machine
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   whoami:
@@ -25,5 +31,7 @@ services:
     image: containous/whoami
     container_name: whoami
     labels:
+      # Create a route `whoami` and bound with defined entrypoint
       - traefik.http.routers.whoami.entrypoints=web
-      - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
+      # Create rule
+      - traefik.http.routers.whoami.rule=Host(`whoami.example.com`)
